@@ -20,17 +20,28 @@ async function postBird(channel, birdName = null) {
   const name = birdName ?? pickBird();
   console.log(`Fetching data for: ${name}`);
 
-  const { extract, imageUrl: wikiImageUrl } = await fetchWikiData(name);
+  try {
+    const { extract, imageUrl: wikiImageUrl } = await fetchWikiData(name);
 
-  const [birdData, imageUrl, sound] = await Promise.all([
-    promptBird(name, extract),
-    fetchBirdImage(name, wikiImageUrl).catch((err) => { console.error("Image error:", err.message); return wikiImageUrl; }),
-    fetchBirdSound(name).catch((err) => { console.error("Sound error:", err.message); return null; }),
-  ]);
+    const [birdData, imageUrl, sound] = await Promise.all([
+      promptBird(name, extract),
+      fetchBirdImage(name, wikiImageUrl).catch((err) => { console.error("Image error:", err.message); return wikiImageUrl; }),
+      fetchBirdSound(name).catch((err) => { console.error("Sound error:", err.message); return null; }),
+    ]);
 
-  const embed = buildEmbed(birdData, imageUrl, sound);
-  await channel.send({ embeds: [embed] });
-  console.log(`Posted: ${birdData.name}`);
+    const embed = buildEmbed(birdData, imageUrl, sound);
+    await channel.send({ embeds: [embed] });
+    console.log(`Posted: ${birdData.name}`);
+  } catch (err) {
+    console.error(`Failed to post ${name}:`, err.message);
+    if (!birdName) {
+      // Only auto-retry with a different bird if this was a scheduled post
+      console.log("Trying a different bird...");
+      await postBird(channel);
+    } else {
+      throw err; // Re-throw for slash command to handle
+    }
+  }
 }
 
 function startScheduler(client) {
