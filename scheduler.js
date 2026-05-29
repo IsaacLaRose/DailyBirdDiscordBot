@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 const { promptBird } = require("./birds/prompter");
-const { fetchBirdImage, fetchBirdSound } = require("./birds/fetcher");
+const { fetchWikiData, fetchBirdImage, fetchBirdSound } = require("./birds/fetcher");
 const { buildEmbed } = require("./birds/embed");
 const birds = require("./birds.json");
 
@@ -14,13 +14,17 @@ function pickBird() {
   return pick.name;
 }
 
+
+
 async function postBird(channel, birdName = null) {
   const name = birdName ?? pickBird();
   console.log(`Fetching data for: ${name}`);
 
+  const { extract, imageUrl: wikiImageUrl } = await fetchWikiData(name);
+
   const [birdData, imageUrl, sound] = await Promise.all([
-    promptBird(name),
-    fetchBirdImage(name).catch((err) => { console.error("Image error:", err.message); return null; }),
+    promptBird(name, extract),
+    fetchBirdImage(name, wikiImageUrl).catch((err) => { console.error("Image error:", err.message); return wikiImageUrl; }),
     fetchBirdSound(name).catch((err) => { console.error("Sound error:", err.message); return null; }),
   ]);
 

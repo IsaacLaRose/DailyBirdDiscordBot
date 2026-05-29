@@ -2,7 +2,11 @@ require("dotenv").config();
 
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
 
-async function promptBird(birdName, retries = 5) {
+async function promptBird(birdName, wikiExtract = null, retries = 5) {
+  const contextBlock = wikiExtract
+    ? `Here is a Wikipedia excerpt about this bird:\n"${wikiExtract}"\nBase the fun fact on this text. Do not invent facts not supported by it.\n\n`
+    : "";
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -18,7 +22,7 @@ async function promptBird(birdName, retries = 5) {
         },
         {
           role: "user",
-          content: `Generate a Bird of the Day card for: ${birdName}
+          content: `${contextBlock}Generate a Bird of the Day card for: ${birdName}
 
 Return this exact JSON shape:
 {
@@ -39,8 +43,8 @@ Return this exact JSON shape:
     const retryAfter = data.error.metadata?.retry_after_seconds;
     if (retryAfter && retries > 0) {
       console.log(`Rate limited. Retrying in ${retryAfter}s... (${retries} attempts left)`);
-      await new Promise((r) => setTimeout(r, (retryAfter +2) * 1000));
-      return promptBird(birdName, retries - 1);
+      await new Promise((r) => setTimeout(r, (retryAfter + 2) * 1000));
+      return promptBird(birdName, wikiExtract, retries - 1);
     }
     throw new Error(`OpenRouter error: ${data.error.message}`);
   }

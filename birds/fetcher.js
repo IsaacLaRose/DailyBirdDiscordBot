@@ -2,8 +2,9 @@ require("dotenv").config();
 
 const EBIRD_KEY = process.env.EBIRD_KEY;
 
-// Cache the full taxonomy in memory — ~17k species, no point re-fetching every day
 let taxonomyCache = null;
+
+const normalize = (s) => s.toLowerCase().replace(/grey/g, "gray");
 
 async function getSpeciesCode(birdName) {
   if (!taxonomyCache) {
@@ -15,17 +16,36 @@ async function getSpeciesCode(birdName) {
     taxonomyCache = await res.json();
   }
 
-  const match = taxonomyCache.find(
-    (t) => t.comName.toLowerCase() === birdName.toLowerCase()
-  );
+  const match =
+    taxonomyCache.find((t) => normalize(t.comName) === normalize(birdName)) ??
+    taxonomyCache.find((t) => normalize(t.comName).includes(normalize(birdName))) ??
+    taxonomyCache.find((t) => normalize(birdName).includes(normalize(t.comName)));
+
   return match?.speciesCode ?? null;
 }
 
-async function fetchBirdImage(birdName) {
+async function fetchWikiData(birdName) {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(birdName)}`
+    );
+    if (!res.ok) return { extract: null, imageUrl: null };
+    const data = await res.json();
+    return {
+      extract: data.extract ?? null,
+      imageUrl: data.thumbnail?.source ?? null,
+    };
+  } catch (err) {
+    console.error(`Wiki fetch failed for ${birdName}:`, err.message);
+    return { extract: null, imageUrl: null };
+  }
+}
+
+async function fetchBirdImage(birdName, wikiImageUrl = null) {
   try {
     const speciesCode = await getSpeciesCode(birdName);
     console.log(`Species code for ${birdName}:`, speciesCode);
-    if (!speciesCode) return null;
+    if (!speciesCode) return wikiImageUrl;
 
     const res = await fetch(
       `https://search.macaulaylibrary.org/api/v1/search?taxonCode=${speciesCode}&mediaType=Photo&count=5&sort=rating_rank_desc`,
@@ -34,13 +54,13 @@ async function fetchBirdImage(birdName) {
     const data = await res.json();
     console.log("Macaulay response:", JSON.stringify(data).slice(0, 300));
     const assets = data.results?.content;
-    if (!assets?.length) return null;
+    if (!assets?.length) return wikiImageUrl;
 
     const assetId = assets[0].assetId;
     return `https://cdn.download.ams.birds.cornell.edu/api/v1/asset/${assetId}/1200`;
   } catch (err) {
     console.error(`Image fetch failed for ${birdName}:`, err.message);
-    return null;
+    return wikiImageUrl;
   }
 }
 
@@ -54,9 +74,9 @@ async function fetchBirdSound(birdName) {
 
     const data = await res.json();
     console.log(`Xeno-canto results for ${birdName}:`, data.numRecordings);
+    console.log("First recording sample:", JSON.stringify(data.recordings?.[0]).slice(0, 300));
     let recordings = data.recordings;
 
-    // If no A-quality recordings, try without the quality filter
     if (!recordings?.length) {
       console.log("No A-quality recordings, trying without quality filter...");
       const fallback = await fetch(
@@ -83,7 +103,6 @@ async function fetchBirdSound(birdName) {
     console.error(`Sound fetch failed for ${birdName}:`, err.message);
     return null;
   }
-
 }
 
-module.exports = { fetchBirdImage, fetchBirdSound };
+module.exports = { fetchWikiData, fetchBirdImage, fetchBirdSound };
