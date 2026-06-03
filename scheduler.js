@@ -115,4 +115,4 @@ function startScheduler(client) {
   console.log("Bird scheduler running — posts at 9am daily");
 }
 
-module.exports = { startScheduler, postBird };
+module.exports = { startScheduler, postBird, findPostChannel };

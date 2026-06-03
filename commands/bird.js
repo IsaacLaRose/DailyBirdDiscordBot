@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { postBird } = require("../scheduler");
+const { postBird, findPostChannel } = require("../scheduler");
 const birds = require("../birds.json");
 
 module.exports = {
@@ -20,7 +20,9 @@ module.exports = {
     const birdName = input ?? birds[Math.floor(Math.random() * birds.length)].name;
 
     try {
-      const channel = await interaction.client.channels.fetch(process.env.CHANNEL_ID);
+      await interaction.guild.channels.fetch();
+      const channel = findPostChannel(interaction.guild);
+      if (!channel) throw new Error("No suitable channel found.");
       await postBird(channel, birdName);
       await interaction.editReply("Posted.");
     } catch (err) {

@@ -46,4 +46,13 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+client.on("guildCreate", async (guild) => {
+  const rest = new REST().setToken(process.env.TOKEN_KEY);
+  await rest.put(
+    Routes.applicationGuildCommands(process.env.CLIENT_ID, guild.id),
+    { body: client.commands.map((c) => c.data.toJSON()) }
+  );
+  console.log(`Slash commands registered for new guild: ${guild.name}`);
+});
+
 client.login(process.env.TOKEN_KEY);
