@@ -23,7 +23,7 @@ client.on("ready", async () => {
   // Register slash commands
   const rest = new REST().setToken(process.env.TOKEN_KEY);
   await rest.put(
-    Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+    Routes.applicationCommands(process.env.CLIENT_ID),
     { body: client.commands.map((c) => c.data.toJSON()) }
   );
   console.log("✅ Slash commands registered");

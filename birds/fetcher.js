@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const EBIRD_KEY = process.env.EBIRD_KEY;
+const XENO_CANTO_KEY = process.env.XENO_CANTO_KEY;
 
 let taxonomyCache = null;
 
@@ -66,24 +67,22 @@ async function fetchBirdImage(birdName, wikiImageUrl = null) {
 
 async function fetchBirdSound(birdName) {
   try {
-    const query = encodeURIComponent(birdName);
     const res = await fetch(
-      `https://xeno-canto.org/api/2/recordings?query=${query}+q:A`
+      `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(`en:"=${birdName}" q:A`)}&key=${XENO_CANTO_KEY}`
     );
+    console.log("xeno-canto status:", res.status);
     if (!res.ok) return null;
 
     const data = await res.json();
     console.log(`Xeno-canto results for ${birdName}:`, data.numRecordings);
-    console.log("First recording sample:", JSON.stringify(data.recordings?.[0]).slice(0, 300));
     let recordings = data.recordings;
 
     if (!recordings?.length) {
       console.log("No A-quality recordings, trying without quality filter...");
       const fallback = await fetch(
-        `https://xeno-canto.org/api/2/recordings?query=${query}`
+        `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(`en:"=${birdName}"`)}&key=${XENO_CANTO_KEY}`
       );
-      const fallbackData = await fallback.json();
-      recordings = fallbackData.recordings;
+      recordings = (await fallback.json()).recordings;
     }
 
     if (!recordings?.length) return null;
