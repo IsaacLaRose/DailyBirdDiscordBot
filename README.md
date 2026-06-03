@@ -61,7 +61,7 @@ If none of these exist or the bot lacks `Send Messages` permission in all of the
 ## The `/bird` command
 
 ```
-/bird              — posts a random bird from the list
+/bird — posts a random bird from the list
 ```
 
 The command posts to the best available channel in the server it was run in, using the same priority order as the scheduler.
