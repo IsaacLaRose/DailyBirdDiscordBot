@@ -35,7 +35,7 @@ function findPostChannel(guild) {
   return byName(FALLBACK_CHANNEL);
 }
 
-async function postBird(channel, birdName = null) {
+async function postBird(channel, birdName = null, retries = 3) {
   const name = birdName ?? pickBird();
   console.log(`Fetching data for: ${name}`);
 
