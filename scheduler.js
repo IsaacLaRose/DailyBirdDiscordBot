@@ -18,11 +18,7 @@ function pickBird() {
   return pick.name;
 }
 
-/**
- * Finds the best text channel in a guild to post in.
- * Tries PREFERRED_CHANNELS in order, falls back to FALLBACK_CHANNEL.
- * Returns null if nothing is found.
- */
+
 function findPostChannel(guild) {
   const textChannels = guild.channels.cache.filter(
     (c) => c.type === ChannelType.GuildText && c.permissionsFor(guild.members.me)?.has("SendMessages")
@@ -66,50 +62,48 @@ async function postBird(channel, birdName = null) {
     if (!birdName) {
       console.log("Trying a different bird...");
       await postBird(channel);
+    } else if (retries > 0) {
+      console.log(`Retrying ${name}... (${retries} attempt(s) left)`);
+      await new Promise((r) => setTimeout(r, 3000));
+      await postBird(channel, birdName, retries - 1);
     } else {
       throw err;
     }
   }
 }
 
+async function broadcastBird(client, birdName) {
+  const guilds = client.guilds.cache.values();
+
+  for (const guild of guilds) {
+    try {
+      await guild.channels.fetch();
+
+      const channel = findPostChannel(guild);
+      if (!channel) {
+        console.warn(`[${guild.name}] No suitable channel found — skipping.`);
+        continue;
+      }
+
+      console.log(`[${guild.name}] Posting to #${channel.name}`);
+      await postBird(channel, birdName);
+    } catch (err) {
+      console.error(`[${guild.name}] Error:`, err);
+    }
+  }
+}
+
 function startScheduler(client) {
   cron.schedule("0 9 * * *", async () => {
-    const guilds = client.guilds.cache.values();
-
-    for (const guild of guilds) {
-      try {
-        // Ensure the guild's channel list is populated
-        await guild.channels.fetch();
-
-        const channel = findPostChannel(guild);
-        if (!channel) {
-          console.warn(`[${guild.name}] No suitable channel found — skipping.`);
-          continue;
-        }
-
-        console.log(`[${guild.name}] Posting to #${channel.name}`);
-        await postBird(channel);
-      } catch (err) {
-        console.error(`[${guild.name}] Scheduler error:`, err);
-      }
-    }
+    const sharedBird = pickBird();
+    console.log(`Daily bird: ${sharedBird}`);
+    await broadcastBird(client, sharedBird);
   });
 
   if (process.env.NODE_ENV === "development") {
-    client.guilds.cache.forEach(async (guild) => {
-      try {
-        await guild.channels.fetch();
-        const channel = findPostChannel(guild);
-        if (channel) {
-          console.log(`[DEV][${guild.name}] Posting to #${channel.name}`);
-          await postBird(channel);
-        } else {
-          console.warn(`[DEV][${guild.name}] No suitable channel found.`);
-        }
-      } catch (err) {
-        console.error(`[DEV][${guild.name}] Error:`, err);
-      }
-    });
+    const sharedBird = pickBird();
+    console.log(`[DEV] Daily bird: ${sharedBird}`);
+    broadcastBird(client, sharedBird);
   }
 
   console.log("Bird scheduler running — posts at 9am daily");
