@@ -35,7 +35,7 @@ function findPostChannel(guild) {
   return byName(FALLBACK_CHANNEL);
 }
 
-async function postBird(channel, birdName = null, retries = 3) {
+async function postBird(channel, birdName = null) {
   const name = birdName ?? pickBird();
   console.log(`Fetching data for: ${name}`);
 
@@ -59,36 +59,54 @@ async function postBird(channel, birdName = null, retries = 3) {
     console.log(`Posted: ${birdData.name}`);
   } catch (err) {
     console.error(`Failed to post ${name}:`, err.message);
-    if (!birdName) {
-      console.log("Trying a different bird...");
-      await postBird(channel);
-    } else if (retries > 0) {
-      console.log(`Retrying ${name}... (${retries} attempt(s) left)`);
-      await new Promise((r) => setTimeout(r, 3000));
-      await postBird(channel, birdName, retries - 1);
-    } else {
-      throw err;
-    }
+    throw err;
   }
 }
 
-async function broadcastBird(client, birdName) {
-  const guilds = client.guilds.cache.values();
+async function broadcastBird(client, birdName, retries = 3) {
+  console.log(`Fetching shared data for: ${birdName}`);
 
-  for (const guild of guilds) {
-    try {
-      await guild.channels.fetch();
+  try {
+    const { extract, imageUrl: wikiImageUrl } = await fetchWikiData(birdName);
 
-      const channel = findPostChannel(guild);
-      if (!channel) {
-        console.warn(`[${guild.name}] No suitable channel found — skipping.`);
-        continue;
+    const [birdData, imageUrl, sound] = await Promise.all([
+      promptBird(birdName, extract),
+      fetchBirdImage(birdName, wikiImageUrl).catch((err) => {
+        console.error("Image error:", err.message);
+        return wikiImageUrl;
+      }),
+      fetchBirdSound(birdName).catch((err) => {
+        console.error("Sound error:", err.message);
+        return null;
+      }),
+    ]);
+
+    const embed = buildEmbed(birdData, imageUrl, sound);
+    const guilds = client.guilds.cache.values();
+
+    for (const guild of guilds) {
+      try {
+        await guild.channels.fetch();
+        const channel = findPostChannel(guild);
+        if (!channel) {
+          console.warn(`[${guild.name}] No suitable channel found — skipping.`);
+          continue;
+        }
+        console.log(`[${guild.name}] Posting to #${channel.name}`);
+        await channel.send({ embeds: [embed] });
+        console.log(`[${guild.name}] Posted: ${birdData.name}`);
+      } catch (err) {
+        console.error(`[${guild.name}] Error:`, err);
       }
-
-      console.log(`[${guild.name}] Posting to #${channel.name}`);
-      await postBird(channel, birdName);
-    } catch (err) {
-      console.error(`[${guild.name}] Error:`, err);
+    }
+  } catch (err) {
+    console.error(`Failed to broadcast ${birdName}:`, err.message);
+    if (retries > 0) {
+      console.log(`Retrying broadcast... (${retries} attempt(s) left)`);
+      await new Promise((r) => setTimeout(r, 3000));
+      await broadcastBird(client, birdName, retries - 1);
+    } else {
+      console.error(`Broadcast failed after all retries for: ${birdName}`);
     }
   }
 }
