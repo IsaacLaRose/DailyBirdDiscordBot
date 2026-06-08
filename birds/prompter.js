@@ -62,14 +62,23 @@ Return this exact JSON shape:
     }
 
     const raw = data.choices[0].message.content;
-    console.log(`[LLM] Parsed response for: ${birdName}`);
+    console.log(`[LLM] Raw response for ${birdName}:`, raw);
+    //testing to see if host was causing an error
 
+    let parsed;
     try {
-      return JSON.parse(raw);
+      parsed = JSON.parse(raw);
     } catch {
       const cleaned = raw.replace(/```json|```/g, "").trim();
-      return JSON.parse(cleaned);
+      parsed = JSON.parse(cleaned);
     }
+
+    if (!parsed?.name) {
+      throw new Error(`LLM returned invalid data for ${birdName}: ${raw}`);
+    }
+
+    console.log(`[LLM] Parsed response for: ${birdName}`);
+    return parsed;
   } catch (err) {
     clearTimeout(timeout);
 

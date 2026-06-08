@@ -112,7 +112,8 @@ async function broadcastBird(client, birdName, retries = 3) {
 }
 
 function startScheduler(client) {
-  cron.schedule("0 9 * * *", async () => {
+  //cron.schedule("0 9 * * *", async () => {
+  cron.schedule("*/2 * * * *", async () => { //testing
     const sharedBird = pickBird();
     console.log(`Daily bird: ${sharedBird}`);
     await broadcastBird(client, sharedBird);
